@@ -56,6 +56,18 @@ class TicketLifecycleTest extends TestCase
         Notification::assertNotSentTo($busy, TicketCreatedNotification::class);
     }
 
+    public function test_ticket_without_department_goes_to_admins_for_triage(): void
+    {
+        $agent = $this->agent();
+        $admin = $this->admin();
+
+        $this->actingAs($this->requester())->post(route('tickets.store'), ['subject' => 'Not sure who handles this', 'description' => '?']);
+
+        $this->assertNull(Ticket::firstOrFail()->assignee_id);
+        Notification::assertSentTo($admin, TicketCreatedNotification::class);
+        Notification::assertNotSentTo($agent, TicketCreatedNotification::class);
+    }
+
     public function test_ticket_creation_validates_input(): void
     {
         $this->actingAs($this->requester())

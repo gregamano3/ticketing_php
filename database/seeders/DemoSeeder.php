@@ -130,12 +130,10 @@ class DemoSeeder extends Seeder
                 $ticket->sla_paused_at = now()->subHours(random_int(1, 20));
             }
 
-            $ticket->response_breached = $ticket->first_responded_at
-                ? $ticket->first_responded_at->gt($ticket->due_response_at)
-                : $ticket->due_response_at->isPast();
-            $ticket->resolution_breached = $ticket->resolved_at
-                ? $ticket->resolved_at->gt($ticket->due_resolution_at)
-                : (! $status->pauses_sla && $ticket->due_resolution_at->isPast());
+            // Historic breaches are recorded; breaches on open tickets are left for
+            // `helpdesk:check-sla` to detect, so they get escalated properly.
+            $ticket->response_breached = (bool) $ticket->first_responded_at?->gt($ticket->due_response_at);
+            $ticket->resolution_breached = (bool) $ticket->resolved_at?->gt($ticket->due_resolution_at);
             $ticket->updated_at = $ticket->resolved_at ?? $ticket->first_responded_at ?? $createdAt;
             $ticket->save();
 

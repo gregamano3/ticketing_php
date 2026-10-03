@@ -24,12 +24,13 @@ class SendTicketNotifications
 
         $ticket->requester?->notify(new TicketReceivedNotification($ticket));
 
-        // Staff who should pick it up: the assignee, or else the department's agents.
-        $staff = $ticket->assignee
-            ? collect([$ticket->assignee])
-            : User::agents()->active()
-                ->when($ticket->department_id, fn ($q) => $q->where('department_id', $ticket->department_id))
-                ->get();
+        // Staff who should pick it up: the assignee, else the department's agents,
+        // else (no department chosen) the admins, who triage it.
+        $staff = match (true) {
+            (bool) $ticket->assignee => collect([$ticket->assignee]),
+            (bool) $ticket->department_id => User::role('agent')->active()->where('department_id', $ticket->department_id)->get(),
+            default => collect(),
+        };
 
         if ($staff->isEmpty()) {
             $staff = User::role('admin')->active()->get();
