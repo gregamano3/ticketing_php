@@ -27,6 +27,13 @@ class Ticket extends Model
     protected function casts(): array
     {
         return [
+            'requester_id' => 'integer',
+            'assignee_id' => 'integer',
+            'department_id' => 'integer',
+            'category_id' => 'integer',
+            'priority_id' => 'integer',
+            'status_id' => 'integer',
+            'escalation_level' => 'integer',
             'due_response_at' => 'datetime',
             'due_resolution_at' => 'datetime',
             'first_responded_at' => 'datetime',
