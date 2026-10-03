@@ -90,7 +90,7 @@
 
 @push('js')
 <script>
-    window.addEventListener('load', () => {
+    window._AdminLTE_Ready(() => {
         document.querySelectorAll('select.tom-select').forEach(el => new TomSelect(el, {
             plugins: el.multiple ? ['remove_button'] : [],
             allowEmptyOption: true,

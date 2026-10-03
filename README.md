@@ -58,10 +58,18 @@ All demo accounts use the password `password`. They're seeded only outside produ
 ## Tests
 
 ```bash
-./vendor/bin/sail artisan test
+./vendor/bin/sail artisan test     # PHPUnit feature tests (PostgreSQL `testing` DB)
+bin/e2e                            # Playwright browser tests (or: npm run e2e)
 ```
 
-The tests run against the Sail PostgreSQL `testing` database, because full-text search uses `tsvector`.
+`bin/e2e` **reseeds the dev database** with demo data, starts a queue worker,
+and runs Playwright (Chromium) from the official Docker image against
+http://localhost. It drives the app as admin, agent and requester, checks
+emails in Mailpit, and fails on any browser console error. Extra arguments go
+to Playwright, e.g. `bin/e2e -g journey` or `bin/e2e --repeat-each=3`.
+Reports and traces of failures land in `storage/e2e/`.
+
+CI (GitHub Actions) runs Pint, PHPUnit and the Playwright suite on every pull request.
 
 ## Configuration
 

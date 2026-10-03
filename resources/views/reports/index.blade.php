@@ -110,7 +110,7 @@
 
 @push('js')
 <script>
-    window.addEventListener('load', () => {
+    window._AdminLTE_Ready(() => {
         const css = getComputedStyle(document.documentElement);
         const palette = ['primary', 'success', 'warning', 'danger', 'info', 'secondary', 'dark'];
         const color = (name, i) => css.getPropertyValue('--bs-' + (name || palette[i % palette.length])).trim();

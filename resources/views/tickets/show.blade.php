@@ -295,7 +295,7 @@
 
 @push('js')
 <script>
-    window.addEventListener('load', () => {
+    window._AdminLTE_Ready(() => {
         document.querySelectorAll('select.tom-select').forEach(el => new TomSelect(el, {
             plugins: el.multiple ? ['remove_button'] : [], allowEmptyOption: true, maxOptions: 500,
         }));
@@ -319,11 +319,14 @@
         // Make the internal-note state obvious before sending.
         const internal = document.getElementById('is_internal');
         const submit = document.getElementById('reply-submit');
-        internal?.addEventListener('change', () => {
+        const syncSubmit = () => {
+            if (!internal) return;
             submit.classList.toggle('btn-primary', !internal.checked);
             submit.classList.toggle('btn-warning', internal.checked);
             submit.innerHTML = internal.checked ? '<i class="bi bi-lock"></i> Add internal note' : '<i class="bi bi-send"></i> Send reply';
-        });
+        };
+        internal?.addEventListener('change', syncSubmit);
+        syncSubmit(); // the browser may restore the checkbox state on back/forward
     });
 </script>
 @endpush

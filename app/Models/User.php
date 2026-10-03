@@ -71,10 +71,22 @@ class User extends Authenticatable
         $query->role(['admin', 'agent']);
     }
 
-    /** AdminLTE user menu image (initials avatar). */
+    /** Initials avatar as an inline SVG, so no user data leaves the app. */
     public function adminlte_image(): string
     {
-        return 'https://ui-avatars.com/api/?background=0d6efd&color=fff&name='.urlencode($this->name);
+        $initials = collect(preg_split('/\s+/', trim($this->name)))
+            ->filter()->take(2)
+            ->map(fn ($part) => mb_strtoupper(mb_substr($part, 0, 1)))
+            ->implode('');
+        $colors = ['#0d6efd', '#6610f2', '#6f42c1', '#d63384', '#dc3545', '#fd7e14', '#198754', '#20c997', '#0dcaf0', '#495057'];
+        $color = $colors[crc32($this->email ?? $this->name) % count($colors)];
+
+        $svg = '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">'
+            .'<rect width="64" height="64" fill="'.$color.'"/>'
+            .'<text x="50%" y="50%" dy=".35em" text-anchor="middle" fill="#fff" font-family="Arial,sans-serif" font-size="26">'
+            .e($initials).'</text></svg>';
+
+        return 'data:image/svg+xml;base64,'.base64_encode($svg);
     }
 
     public function adminlte_desc(): string
