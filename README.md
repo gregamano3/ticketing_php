@@ -1,58 +1,76 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Helpdesk
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+An internal helpdesk ticketing system built with **Laravel 13**, **PostgreSQL** and **AdminLTE 4** (`jeroennoten/laravel-adminlte`).
 
-## About Laravel
+## Features
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+- **Tickets:** references (`TKT-000123`), departments, nested categories, priorities, statuses, tags, watchers (CC), attachments, internal notes, and PostgreSQL full-text search
+- **Roles:** Admin, Agent and Requester (`spatie/laravel-permission`)
+  - Agents see their department's tickets
+  - Requesters see their own tickets and the ones they watch
+- **Routing:** new tickets are auto-assigned to the least-busy agent in the department. Tickets with no department go to the admins for triage.
+- **SLA:** response and resolution targets per priority
+  - The clock pauses on *Pending* or *On Hold* statuses
+  - A scheduled breach check runs every 5 minutes
+  - Escalation has two levels: first the assignee and department lead, then the admins after `HELPDESK_ESCALATION_L2_MINUTES`
+- **Notifications:** queued email plus an in-app bell on create, assign, reply, status change and SLA breach
+- **Audit log:** every property change is shown on the ticket (`spatie/laravel-activitylog`)
+- **Knowledge base:** a rich-text editor (Quill, sanitized with HTMLPurifier), full-text search, drafts and helpful votes
+- **Canned replies:** shared and personal, with `{requester}`, `{agent}` and `{reference}` placeholders
+- **Reports:** volume by status, priority, department and category, agent performance and SLA compliance, all with CSV export
+- **Admin:** user management (roles, activate/deactivate) plus configuration for departments, categories, priorities and SLA, statuses, tags and KB categories
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## Getting started (Laravel Sail)
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
-
-## Learning Laravel
-
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
-
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
-
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
-
-## Agentic Development
-
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+Requires Docker.
 
 ```bash
-composer require laravel/boost --dev
-
-php artisan boost:install
+cp .env.example .env            # DB_CONNECTION=pgsql, QUEUE_CONNECTION=redis
+docker run --rm -u "$(id -u):$(id -g)" -v "$PWD":/app -w /app composer install --ignore-platform-reqs
+./vendor/bin/sail up -d
+./vendor/bin/sail artisan key:generate
+./vendor/bin/sail artisan migrate --seed
+./vendor/bin/sail artisan storage:link
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+Run these in separate terminals:
 
-## Contributing
+```bash
+./vendor/bin/sail artisan queue:work      # sends notifications
+./vendor/bin/sail artisan schedule:work   # SLA breach checks
+```
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+- App: http://localhost
+- Mailpit (outgoing mail): http://localhost:8025
 
-## Code of Conduct
+> On SELinux hosts (e.g. Fedora), the bind mounts in `compose.yaml` carry the `:z` label. If port 6379 is taken locally, set `FORWARD_REDIS_PORT` in `.env`.
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+### Demo accounts
 
-## Security Vulnerabilities
+All demo accounts use the password `password`. They're seeded only outside production.
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+| Role      | Email                 |
+|-----------|-----------------------|
+| Admin     | `admin@example.com`   |
+| Agent     | `agent@example.com` (IT Support) |
+| Requester | `user@example.com`    |
 
-## License
+## Tests
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+```bash
+./vendor/bin/sail artisan test
+```
+
+The tests run against the Sail PostgreSQL `testing` database, because full-text search uses `tsvector`.
+
+## Configuration
+
+Settings live in `config/helpdesk.php` and can be overridden from `.env`:
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `HELPDESK_REFERENCE_PREFIX` | `TKT-` | Prefix for ticket references |
+| `HELPDESK_AUTO_ASSIGN` | `true` | Auto-assign new tickets within the department |
+| `HELPDESK_ESCALATION_L2_MINUTES` | `60` | Delay before a breached ticket escalates to the admins |
+| `HELPDESK_AT_RISK_MINUTES` | `60` | When the SLA badge turns "at risk" |
+| `HELPDESK_ATTACHMENT_MAX_KB` | `10240` | Maximum size per attachment |
