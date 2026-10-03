@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# Run the Playwright browser suite against the local Sail stack.
+# Reseeds the database (demo data), makes sure a queue worker is running,
+# then runs Playwright from the official Docker image. Extra args go to
+# `playwright test`, e.g. `bin/e2e --headed` or `bin/e2e -g "journey"`.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+PW_VERSION=$(node -p "require('./package.json').devDependencies['@playwright/test']")
+SAIL=./vendor/bin/sail
+
+$SAIL artisan migrate:fresh --seed --force
+$SAIL artisan optimize:clear >/dev/null
+# A short-lived worker delivers the notifications the suite checks in Mailpit.
+docker compose exec -d laravel.test php artisan queue:work --max-time=900 --sleep=1
+
+mkdir -p storage/e2e/.auth
+docker run --rm --network host --ipc host \
+    -u "$(id -u):$(id -g)" -e HOME=/tmp -e CI="${CI:-}" \
+    -v "$PWD":/work:z -w /work \
+    "mcr.microsoft.com/playwright:v${PW_VERSION}-noble" \
+    npx playwright test "$@"
