@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreTicketRequest;
+use App\Http\Requests\TriageTicketRequest;
 use App\Http\Requests\UpdateTicketRequest;
 use App\Models\CannedResponse;
 use App\Models\Category;
@@ -25,6 +26,7 @@ class TicketController extends Controller
 {
     public const VIEWS = [
         'all' => 'All tickets',
+        'triage' => 'Needs triage',
         'open' => 'Open tickets',
         'mine' => 'Assigned to me',
         'requested' => 'My requests',
@@ -40,7 +42,8 @@ class TicketController extends Controller
     public function index(Request $request): View
     {
         $user = $request->user();
-        $view = array_key_exists($request->query('view'), self::VIEWS) ? $request->query('view') : ($user->isStaff() ? 'open' : 'requested');
+        $views = $this->viewsFor($user);
+        $view = array_key_exists($request->query('view'), $views) ? $request->query('view') : ($user->isStaff() ? 'open' : 'requested');
 
         $tickets = $this->filteredQuery($request, $view)
             ->with(['requester', 'assignee', 'priority', 'status', 'department', 'tags'])
@@ -51,7 +54,7 @@ class TicketController extends Controller
         return view('tickets.index', [
             'tickets' => $tickets,
             'view' => $view,
-            'views' => $user->isStaff() ? self::VIEWS : array_intersect_key(self::VIEWS, array_flip(['requested', 'watching', 'all'])),
+            'views' => $this->viewsFor($user),
             'sla' => $this->sla,
             ...$this->lookups(),
         ]);
@@ -101,6 +104,7 @@ class TicketController extends Controller
         $ticket->load([
             'requester.department', 'assignee', 'priority', 'status', 'department', 'category', 'tags', 'watchers',
             'attachments.user', 'escalations.escalatedTo',
+            'triager',
             'replies' => fn ($q) => $q->when(! $user->isStaff(), fn ($r) => $r->public())->with(['user', 'attachments'])->oldest(),
         ]);
 
@@ -148,12 +152,44 @@ class TicketController extends Controller
         return back()->with('success', 'You are now assigned to this ticket.');
     }
 
+    public function triage(TriageTicketRequest $request, Ticket $ticket): RedirectResponse
+    {
+        $this->tickets->triage($ticket, $request->validated(), $request->user());
+
+        $assignee = $ticket->assignee?->name;
+
+        return redirect()->route('tickets.show', $ticket)
+            ->with('success', 'Ticket triaged'.($assignee ? " and assigned to {$assignee}." : '.'));
+    }
+
+    public function sendBackToTriage(Request $request, Ticket $ticket): RedirectResponse
+    {
+        $this->authorize('sendBackToTriage', $ticket);
+        $reason = $request->validate(['reason' => ['required', 'string', 'max:1000']])['reason'];
+
+        $this->tickets->sendBackToTriage($ticket, $reason, $request->user());
+
+        return redirect()->route('tickets.index', ['view' => 'open'])->with('success', "Ticket {$ticket->reference} was sent back to triage.");
+    }
+
     public function toggleWatch(Request $request, Ticket $ticket): RedirectResponse
     {
         $this->authorize('view', $ticket);
         $result = $ticket->watchers()->toggle($request->user()->id);
 
         return back()->with('success', $result['attached'] ? 'You are now watching this ticket.' : 'You stopped watching this ticket.');
+    }
+
+    /** @return array<string, string> */
+    private function viewsFor(User $user): array
+    {
+        $views = $user->isStaff() ? self::VIEWS : array_intersect_key(self::VIEWS, array_flip(['requested', 'watching', 'all']));
+
+        if (! $user->canTriage()) {
+            unset($views['triage']);
+        }
+
+        return $views;
     }
 
     private function filteredQuery(Request $request, string $view): Builder
@@ -163,6 +199,7 @@ class TicketController extends Controller
         $query = Ticket::query()->visibleTo($user)->select('tickets.*');
 
         match ($view) {
+            'triage' => $query->needsTriage(),
             'open' => $query->open(),
             'mine' => $query->open()->where('assignee_id', $user->id),
             'requested' => $query->where('requester_id', $user->id),
@@ -206,7 +243,7 @@ class TicketController extends Controller
             'departments' => Department::orderBy('name')->get(),
             'categories' => Category::active()->with('parent')->orderBy('name')->get(),
             'tags' => Tag::orderBy('name')->get(),
-            'agents' => User::agents()->active()->orderBy('name')->get(),
+            'agents' => User::agents()->active()->with('department')->orderBy('name')->get(),
             'users' => User::active()->orderBy('name')->get(['id', 'name', 'email']),
         ];
     }

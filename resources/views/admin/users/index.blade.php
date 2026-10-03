@@ -38,7 +38,7 @@
                     <tr class="{{ $u->is_active ? '' : 'opacity-50' }}">
                         <td><x-avatar :user="$u" size="xs" /> {{ $u->name }} <div class="small text-body-secondary">{{ $u->job_title }}</div></td>
                         <td>{{ $u->email }}</td>
-                        <td>@foreach ($u->roles as $r)<span class="badge text-bg-{{ ['admin' => 'danger', 'agent' => 'primary'][$r->name] ?? 'secondary' }}">{{ ucfirst($r->name) }}</span>@endforeach</td>
+                        <td>@foreach ($u->roles as $r)<span class="badge text-bg-{{ ['admin' => 'danger', 'agent' => 'primary'][$r->name] ?? 'secondary' }}">{{ ucfirst($r->name) }}</span>@endforeach @if ($u->permissions->contains('name', 'tickets.triage'))<span class="badge text-bg-warning">Triage</span>@endif</td>
                         <td>{{ $u->department?->name ?? '—' }}</td>
                         <td class="text-end">{{ $u->open_assigned_count }}</td>
                         <td>{!! $u->is_active ? '<span class="badge text-bg-success">Active</span>' : '<span class="badge text-bg-secondary">Inactive</span>' !!}</td>

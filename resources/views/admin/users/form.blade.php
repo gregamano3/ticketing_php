@@ -34,6 +34,12 @@
                 <div class="col-md-4"><label class="form-label">Confirm password</label><input type="password" name="password_confirmation" class="form-control" autocomplete="new-password"></div>
                 <div class="col-12">
                     <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" role="switch" name="can_triage" value="1" id="can_triage" @checked(old('can_triage', $user->exists && $user->checkPermissionTo('tickets.triage')))>
+                        <label class="form-check-label" for="can_triage">Triage access (agents) — sees and routes new tickets from every department</label>
+                    </div>
+                </div>
+                <div class="col-12">
+                    <div class="form-check form-switch">
                         <input class="form-check-input" type="checkbox" role="switch" name="is_active" value="1" id="is_active" @checked(old('is_active', $user->is_active)) @disabled($isSelf)>
                         <label class="form-check-label" for="is_active">Active (can sign in)</label>
                     </div>

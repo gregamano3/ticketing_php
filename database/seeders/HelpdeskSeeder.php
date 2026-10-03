@@ -52,6 +52,12 @@ class HelpdeskSeeder extends Seeder
             }
         }
 
+        // Some categories are never low priority.
+        $high = Priority::where('name', 'High')->value('id');
+        $medium = Priority::where('name', 'Medium')->value('id');
+        Category::where('name', 'Accounts & Access')->update(['default_priority_id' => $high]);
+        Category::whereIn('name', ['Payroll', 'Network & VPN'])->update(['default_priority_id' => $medium]);
+
         foreach (['bug' => 'danger', 'question' => 'info', 'feature-request' => 'success', 'vip' => 'warning', 'recurring' => 'secondary', 'remote' => 'primary'] as $name => $color) {
             Tag::firstOrCreate(['name' => $name], ['color' => $color]);
         }

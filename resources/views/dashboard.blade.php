@@ -17,7 +17,9 @@
             @foreach ([
                 ['Open tickets', $stats['open'], 'bi-inbox', 'primary', 'open'],
                 ['Assigned to me', $stats['mine'], 'bi-person-workspace', 'info', 'mine'],
-                ['Unassigned', $stats['unassigned'], 'bi-question-circle', 'warning', 'unassigned'],
+                $stats['triage'] !== null
+                    ? ['Needs triage', $stats['triage'], 'bi-signpost-split', 'warning', 'triage']
+                    : ['Unassigned', $stats['unassigned'], 'bi-question-circle', 'warning', 'unassigned'],
                 ['Overdue', $stats['overdue'], 'bi-alarm', 'danger', 'overdue'],
             ] as [$label, $value, $icon, $color, $view])
                 <div class="col-lg-3 col-6">

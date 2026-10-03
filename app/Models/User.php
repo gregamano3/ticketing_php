@@ -61,6 +61,17 @@ class User extends Authenticatable
         return $this->hasAnyRole(['admin', 'agent']);
     }
 
+    /** First-line triage: admins, plus agents granted the tickets.triage permission. */
+    public function canTriage(): bool
+    {
+        return $this->isAdmin() || ($this->isAgent() && $this->checkPermissionTo('tickets.triage'));
+    }
+
+    public function scopeTriagers(Builder $query): void
+    {
+        $query->active()->where(fn ($q) => $q->role('admin')->orWhere(fn ($a) => $a->role('agent')->permission('tickets.triage')));
+    }
+
     public function scopeActive(Builder $query): void
     {
         $query->where('is_active', true);

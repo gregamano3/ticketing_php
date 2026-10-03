@@ -26,8 +26,10 @@
             ['Resolved', $summary['resolved'], 'bi-check2-circle', 'success'],
             ['Avg first response', $fmt($summary['avg_response']), 'bi-reply', 'info'],
             ['Avg resolution', $fmt($summary['avg_resolution']), 'bi-hourglass-bottom', 'secondary'],
+            ['Avg time to triage', $fmt($summary['avg_triage']), 'bi-signpost-split', 'warning'],
+            ['Awaiting triage now', $summary['awaiting_triage'], 'bi-inbox', 'danger'],
         ] as [$label, $value, $icon, $color])
-            <div class="col-md-6 col-xl-3">
+            <div class="col-md-6 col-xl-4">
                 <div class="info-box mb-3">
                     <span class="info-box-icon text-bg-{{ $color }} shadow-sm"><i class="bi {{ $icon }}"></i></span>
                     <div class="info-box-content">

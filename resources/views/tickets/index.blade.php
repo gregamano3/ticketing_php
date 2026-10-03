@@ -123,6 +123,7 @@
                         <td>
                             <a href="{{ route('tickets.show', $t) }}" class="link-body-emphasis link-underline-opacity-0 ticket-subject">{{ \Illuminate\Support\Str::limit($t->subject, 70) }}</a>
                             <div class="small text-body-secondary">
+                                @if ($t->needsTriage())<span class="badge text-bg-warning">Needs triage</span>@endif
                                 {{ $t->department?->name ?? 'No department' }}
                                 · <i class="bi bi-chat"></i> {{ $t->replies_count }}
                                 <x-tag-badges :tags="$t->tags" />

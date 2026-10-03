@@ -23,7 +23,11 @@ class SlaBreachedNotification extends TicketNotification
 
     protected function details(): array
     {
-        $due = $this->type === 'response' ? $this->ticket->due_response_at : $this->ticket->due_resolution_at;
+        $due = match ($this->type) {
+            'response' => $this->ticket->due_response_at,
+            'triage' => $this->ticket->created_at->copy()->addMinutes((int) config('helpdesk.triage_minutes')),
+            default => $this->ticket->due_resolution_at,
+        };
 
         return $due ? ["It was due {$due->diffForHumans()} ({$due->toDayDateTimeString()})."] : [];
     }

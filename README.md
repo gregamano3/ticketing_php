@@ -8,7 +8,12 @@ An internal helpdesk ticketing system built with **Laravel 13**, **PostgreSQL** 
 - **Roles:** Admin, Agent and Requester (`spatie/laravel-permission`)
   - Agents see their department's tickets
   - Requesters see their own tickets and the ones they watch
-- **Routing:** new tickets are auto-assigned to the least-busy agent in the department. Tickets with no department go to the admins for triage.
+- **Routing:** a category implies its department, and can set a minimum priority. New tickets are auto-assigned to the least-busy agent in the department.
+- **Triage:**
+  - Requester tickets land in a **Needs triage** queue. Requesters describe impact and urgency, and the system suggests a priority from those.
+  - First-line triagers (admins, plus agents granted *Triage access*) see the queue across all departments. They confirm the department, category, priority and assignee in one step.
+  - Wrongly routed tickets can be **sent back to triage** with a reason.
+  - Tickets left untriaged longer than `HELPDESK_TRIAGE_MINUTES` escalate to the triagers.
 - **SLA:** response and resolution targets per priority
   - The clock pauses on *Pending* or *On Hold* statuses
   - A scheduled breach check runs every 5 minutes
@@ -52,7 +57,7 @@ All demo accounts use the password `password`. They're seeded only outside produ
 | Role      | Email                 |
 |-----------|-----------------------|
 | Admin     | `admin@example.com`   |
-| Agent     | `agent@example.com` (IT Support) |
+| Agent     | `agent@example.com` (IT Support, triager) |
 | Requester | `user@example.com`    |
 
 ## Tests
@@ -80,5 +85,6 @@ Settings live in `config/helpdesk.php` and can be overridden from `.env`:
 | `HELPDESK_REFERENCE_PREFIX` | `TKT-` | Prefix for ticket references |
 | `HELPDESK_AUTO_ASSIGN` | `true` | Auto-assign new tickets within the department |
 | `HELPDESK_ESCALATION_L2_MINUTES` | `60` | Delay before a breached ticket escalates to the admins |
+| `HELPDESK_TRIAGE_MINUTES` | `60` | How long a ticket may wait in triage before escalating |
 | `HELPDESK_AT_RISK_MINUTES` | `60` | When the SLA badge turns "at risk" |
 | `HELPDESK_ATTACHMENT_MAX_KB` | `10240` | Maximum size per attachment |

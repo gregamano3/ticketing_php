@@ -7,14 +7,18 @@ use App\Events\TicketCreated;
 use App\Events\TicketReplied;
 use App\Events\TicketStatusChanged;
 use App\Models\Attachment;
+use App\Models\Category;
 use App\Models\Priority;
 use App\Models\Status;
 use App\Models\Ticket;
 use App\Models\TicketReply;
 use App\Models\User;
+use App\Notifications\TicketNeedsTriageNotification;
+use App\Support\PriorityMatrix;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Str;
 
 class TicketService
@@ -29,16 +33,24 @@ class TicketService
      */
     public function create(array $data, User $actor, array $files = []): Ticket
     {
+        $data = $this->routeByCategory($data);
+
         $ticket = DB::transaction(function () use ($data, $actor, $files) {
             $ticket = new Ticket(Arr::only($data, [
-                'subject', 'description', 'department_id', 'category_id', 'priority_id', 'source',
+                'subject', 'description', 'department_id', 'category_id', 'source', 'impact', 'urgency',
             ]));
 
-            // Only staff may open tickets on behalf of someone else or pick an assignee.
+            // Only staff may open tickets on behalf of someone else, pick an assignee or set the priority.
             $ticket->requester_id = $actor->isStaff() && ! empty($data['requester_id']) ? $data['requester_id'] : $actor->id;
             $ticket->assignee_id = $actor->isStaff() ? ($data['assignee_id'] ?? null) : null;
-            $ticket->priority_id ??= Priority::default()?->id;
+            $ticket->priority_id = $this->initialPriority($data, $actor)?->id;
             $ticket->status_id = Status::default()->id;
+
+            // Staff who route a ticket themselves have effectively triaged it.
+            if ($actor->isStaff() && $ticket->department_id) {
+                $ticket->triaged_at = now();
+                $ticket->triaged_by = $actor->id;
+            }
             $ticket->reference = 'TMP-'.Str::uuid(); // replaced once the id is known
             $ticket->created_at = now();
             $this->sla->applyTargets($ticket, $ticket->created_at);
@@ -83,6 +95,7 @@ class TicketService
     {
         $previousStatus = $ticket->status;
         $previousAssigneeId = $ticket->assignee_id;
+        $data = $this->routeByCategory($data);
 
         DB::transaction(function () use ($ticket, $data) {
             $ticket->fill(Arr::only($data, [
@@ -174,6 +187,77 @@ class TicketService
         }
 
         return $reply;
+    }
+
+    /**
+     * Triage: confirm routing (department, category), priority and optionally
+     * the assignee in one step. Without an assignee, the ticket is auto-assigned
+     * within its department.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    public function triage(Ticket $ticket, array $data, User $actor): Ticket
+    {
+        $ticket->triaged_at = now();
+        $ticket->triaged_by = $actor->id;
+
+        $this->update($ticket, Arr::only($data, ['department_id', 'category_id', 'priority_id', 'assignee_id']), $actor);
+
+        if (! $ticket->assignee_id && config('helpdesk.auto_assign') && $this->autoAssign($ticket)) {
+            TicketAssigned::dispatch($ticket->load('assignee'), $actor, null);
+        }
+
+        activity('ticket')->performedOn($ticket)->causedBy($actor)->event('triaged')->log('triaged the ticket');
+
+        return $ticket;
+    }
+
+    /** Return a wrongly routed ticket to the triage queue, explaining why in an internal note. */
+    public function sendBackToTriage(Ticket $ticket, string $reason, User $actor): Ticket
+    {
+        $this->reply($ticket, ['body' => "Sent back to triage: {$reason}", 'is_internal' => true], $actor);
+
+        $ticket->forceFill(['triaged_at' => null, 'triaged_by' => null])->save();
+        $this->update($ticket, ['assignee_id' => null], $actor);
+
+        activity('ticket')->performedOn($ticket)->causedBy($actor)->event('untriaged')
+            ->withProperties(['reason' => $reason])->log('sent the ticket back to triage');
+
+        Notification::send(
+            User::triagers()->whereKeyNot($actor->id)->get(),
+            new TicketNeedsTriageNotification($ticket, $reason)
+        );
+
+        return $ticket;
+    }
+
+    /** A category implies its department when none was chosen. */
+    private function routeByCategory(array $data): array
+    {
+        if (! empty($data['category_id']) && empty($data['department_id'])) {
+            $departmentId = Category::whereKey($data['category_id'])->value('department_id');
+            if ($departmentId) {
+                $data['department_id'] = $departmentId;
+            }
+        }
+
+        return $data;
+    }
+
+    /**
+     * Staff pick the priority directly. Requesters describe impact and urgency;
+     * the suggestion is raised to the category's default priority if that is higher.
+     */
+    private function initialPriority(array $data, User $actor): ?Priority
+    {
+        if ($actor->isStaff() && ! empty($data['priority_id'])) {
+            return Priority::find($data['priority_id']);
+        }
+
+        $suggested = PriorityMatrix::suggest($data['impact'] ?? null, $data['urgency'] ?? null);
+        $floor = ! empty($data['category_id']) ? Category::find($data['category_id'])?->defaultPriority : null;
+
+        return PriorityMatrix::max($suggested, $floor) ?? Priority::default();
     }
 
     /** Assign to the active department agent with the fewest open tickets (oldest assignment breaks ties). */

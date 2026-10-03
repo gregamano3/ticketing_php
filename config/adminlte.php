@@ -804,6 +804,13 @@ return [
         ],
         ['header' => 'TICKETS', 'can' => 'tickets.work'],
         [
+            'text' => 'Needs triage',
+            'url' => 'tickets?view=triage',
+            'icon' => 'bi bi-signpost-split',
+            'icon_color' => 'warning',
+            'can' => 'tickets.triage',
+        ],
+        [
             'text' => 'Open tickets',
             'url' => 'tickets?view=open',
             'icon' => 'bi bi-inbox',

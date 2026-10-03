@@ -16,7 +16,7 @@ use Spatie\Activitylog\Support\LogOptions;
 
 #[Fillable([
     'reference', 'subject', 'description', 'requester_id', 'assignee_id', 'department_id',
-    'category_id', 'priority_id', 'status_id', 'source', 'due_response_at', 'due_resolution_at',
+    'category_id', 'priority_id', 'status_id', 'source', 'impact', 'urgency', 'triaged_at', 'triaged_by', 'due_response_at', 'due_resolution_at',
     'first_responded_at', 'sla_paused_at', 'resolved_at', 'closed_at', 'response_breached', 'resolution_breached',
     'escalation_level',
 ])]
@@ -34,6 +34,10 @@ class Ticket extends Model
             'priority_id' => 'integer',
             'status_id' => 'integer',
             'escalation_level' => 'integer',
+            'impact' => 'integer',
+            'urgency' => 'integer',
+            'triaged_by' => 'integer',
+            'triaged_at' => 'datetime',
             'due_response_at' => 'datetime',
             'due_resolution_at' => 'datetime',
             'first_responded_at' => 'datetime',
@@ -77,6 +81,11 @@ class Ticket extends Model
     public function category(): BelongsTo
     {
         return $this->belongsTo(Category::class);
+    }
+
+    public function triager(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'triaged_by');
     }
 
     public function priority(): BelongsTo
@@ -134,6 +143,11 @@ class Ticket extends Model
         return $this->isOpen() && $this->due_resolution_at && $this->due_resolution_at->isPast();
     }
 
+    public function needsTriage(): bool
+    {
+        return $this->triaged_at === null && $this->isOpen();
+    }
+
     public function isBreached(): bool
     {
         return $this->response_breached || $this->resolution_breached;
@@ -147,6 +161,11 @@ class Ticket extends Model
     public function scopeOverdue(Builder $query): void
     {
         $query->open()->where('due_resolution_at', '<', now());
+    }
+
+    public function scopeNeedsTriage(Builder $query): void
+    {
+        $query->open()->whereNull('triaged_at');
     }
 
     public function scopeUnassigned(Builder $query): void
@@ -164,10 +183,16 @@ class Ticket extends Model
         $query->where(function (Builder $q) use ($user) {
             $q->where('requester_id', $user->id)
                 ->orWhere('assignee_id', $user->id)
+                ->orWhere('triaged_by', $user->id)
                 ->orWhereHas('watchers', fn ($w) => $w->where('users.id', $user->id));
 
             if ($user->isAgent() && $user->department_id) {
                 $q->orWhere('department_id', $user->department_id);
+            }
+
+            // First-line triagers see everything still waiting to be triaged.
+            if ($user->canTriage()) {
+                $q->orWhereNull('triaged_at');
             }
         });
     }

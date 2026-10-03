@@ -13,6 +13,7 @@ use App\Models\Tag;
 use App\Models\Ticket;
 use App\Models\TicketReply;
 use App\Models\User;
+use App\Support\PriorityMatrix;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
@@ -49,7 +50,7 @@ class DemoSeeder extends Seeder
         $departments = Department::all()->keyBy('name');
 
         // People
-        User::factory()->admin()->create([
+        $admin = User::factory()->admin()->create([
             'name' => 'Admin User', 'email' => 'admin@example.com', 'job_title' => 'Service Desk Manager',
             'department_id' => $departments['IT Support']->id,
         ]);
@@ -63,6 +64,10 @@ class DemoSeeder extends Seeder
         ])->map(fn ($a) => User::factory()->agent()->create([
             'name' => $a[0], 'email' => $a[1], 'department_id' => $departments[$a[2]]->id, 'job_title' => $a[3],
         ]));
+
+        // Alice is the first-line triager.
+        $agents->first()->givePermissionTo('tickets.triage');
+        $triagers = [$admin, $agents->first()];
 
         foreach ($agents->groupBy('department_id') as $deptId => $deptAgents) {
             Department::whereKey($deptId)->update(['lead_id' => $deptAgents->first()->id]);
@@ -94,19 +99,28 @@ class DemoSeeder extends Seeder
                 : ['Open', 'Open', 'In Progress', 'In Progress', 'Pending', 'Resolved', 'On Hold']);
             $status = $statuses[$statusName];
 
-            $assignee = ($statusName === 'Open' && random_int(0, 2) === 0) ? null : $deptAgents->random();
+            // Recent open tickets may still be waiting for triage; some were never routed.
+            $untriaged = $statusName === 'Open' && $ageDays < 3 && random_int(0, 1) === 1;
+            $unrouted = $untriaged && random_int(0, 2) === 0;
+            $assignee = ($unrouted || ($statusName === 'Open' && random_int(0, 2) === 0)) ? null : $deptAgents->random();
 
             $ticket = new Ticket([
                 'subject' => Arr::random(self::SUBJECTS[$deptName]),
                 'description' => fake()->paragraphs(random_int(1, 3), true),
                 'requester_id' => $requesters->random()->id,
                 'assignee_id' => $assignee?->id,
-                'department_id' => $dept->id,
-                'category_id' => $category?->id,
+                'department_id' => $unrouted ? null : $dept->id,
+                'category_id' => $unrouted ? null : $category?->id,
                 'priority_id' => $priority->id,
                 'status_id' => $status->id,
                 'source' => Arr::random(['web', 'web', 'web', 'email', 'phone']),
+                'impact' => random_int(1, 3),
+                'urgency' => random_int(1, 3),
             ]);
+            if (! $untriaged) {
+                $ticket->triaged_at = $createdAt->copy()->addMinutes(random_int(2, 90))->min(now());
+                $ticket->triaged_by = Arr::random($triagers)->id;
+            }
             $ticket->reference = 'TKT-'.str_pad((string) ++$sequence, 6, '0', STR_PAD_LEFT);
             $ticket->created_at = $createdAt;
             $ticket->due_response_at = $createdAt->copy()->addMinutes($priority->response_minutes);
@@ -147,10 +161,42 @@ class DemoSeeder extends Seeder
             $this->seedConversation($ticket, $assignee);
         }
 
+        $this->seedTriageQueue($requesters, $departments, $priorities, $statuses['Open'], $sequence);
         $this->seedKnowledgeBase($agents);
         $this->seedCannedResponses($agents);
 
         app(ActivityLogStatus::class)->enable();
+    }
+
+    /** Fresh requester tickets waiting in the triage queue, some without a department. */
+    private function seedTriageQueue($requesters, $departments, $priorities, Status $open, int $sequence): void
+    {
+        foreach ([
+            ['Monitor arm came loose, desk 4.22', 'Facilities', 1, 1, 50],
+            ['Cannot open the HR portal — blank page', null, 2, 2, 25],
+            ['Whole sales team lost access to the CRM', null, 2, 3, 12],
+            ['Need a second monitor', 'IT Support', 1, 1, 95],
+            ['Reimbursement for conference ticket', 'Finance', 1, 2, 70],
+        ] as [$subject, $deptName, $impact, $urgency, $minutesAgo]) {
+            $priority = PriorityMatrix::suggest($impact, $urgency, $priorities);
+            $createdAt = now()->subMinutes($minutesAgo);
+
+            $ticket = new Ticket([
+                'subject' => $subject,
+                'description' => fake()->paragraph(),
+                'requester_id' => $requesters->random()->id,
+                'department_id' => $deptName ? $departments[$deptName]->id : null,
+                'priority_id' => $priority->id,
+                'status_id' => $open->id,
+                'impact' => $impact,
+                'urgency' => $urgency,
+            ]);
+            $ticket->reference = 'TKT-'.str_pad((string) ++$sequence, 6, '0', STR_PAD_LEFT);
+            $ticket->created_at = $ticket->updated_at = $createdAt;
+            $ticket->due_response_at = $createdAt->copy()->addMinutes($priority->response_minutes);
+            $ticket->due_resolution_at = $createdAt->copy()->addMinutes($priority->resolution_minutes);
+            $ticket->save();
+        }
     }
 
     private function seedConversation(Ticket $ticket, ?User $assignee): void

@@ -77,7 +77,8 @@ class ReportController extends Controller
             COUNT(*) FILTER (WHERE first_responded_at IS NOT NULL AND NOT response_breached) AS response_met,
             COUNT(*) FILTER (WHERE resolved_at IS NOT NULL AND NOT resolution_breached) AS resolution_met,
             AVG(EXTRACT(EPOCH FROM (first_responded_at - created_at)) / 60) AS avg_response,
-            AVG(EXTRACT(EPOCH FROM (resolved_at - created_at)) / 60) AS avg_resolution
+            AVG(EXTRACT(EPOCH FROM (resolved_at - created_at)) / 60) AS avg_resolution,
+            AVG(EXTRACT(EPOCH FROM (triaged_at - created_at)) / 60) FILTER (WHERE triaged_at > created_at) AS avg_triage
         SQL)->first();
 
         $pct = fn ($part, $whole) => $whole > 0 ? round($part / $whole * 100, 1) : null;
@@ -89,6 +90,8 @@ class ReportController extends Controller
             'avg_resolution' => $row->avg_resolution !== null ? (int) round($row->avg_resolution) : null,
             'response_compliance' => $pct($row->response_met, $row->responded),
             'resolution_compliance' => $pct($row->resolution_met, $row->resolved),
+            'avg_triage' => $row->avg_triage !== null ? (int) round($row->avg_triage) : null,
+            'awaiting_triage' => Ticket::query()->needsTriage()->count(),
         ];
     }
 

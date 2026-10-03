@@ -25,7 +25,7 @@ class SendTicketNotifications
         $ticket->requester?->notify(new TicketReceivedNotification($ticket));
 
         // Staff who should pick it up: the assignee, else the department's agents,
-        // else (no department chosen) the admins, who triage it.
+        // else (no department chosen) the triagers.
         $staff = match (true) {
             (bool) $ticket->assignee => collect([$ticket->assignee]),
             (bool) $ticket->department_id => User::role('agent')->active()->where('department_id', $ticket->department_id)->get(),
@@ -33,7 +33,7 @@ class SendTicketNotifications
         };
 
         if ($staff->isEmpty()) {
-            $staff = User::role('admin')->active()->get();
+            $staff = User::triagers()->get();
         }
 
         Notification::send(

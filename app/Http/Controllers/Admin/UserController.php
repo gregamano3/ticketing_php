@@ -15,7 +15,7 @@ class UserController extends Controller
     public function index(Request $request): View
     {
         $users = User::query()
-            ->with(['department', 'roles'])
+            ->with(['department', 'roles', 'permissions'])
             ->withCount(['assignedTickets as open_assigned_count' => fn ($q) => $q->open()])
             ->when($request->query('q'), fn ($q, $term) => $q->where(fn ($w) => $w->where('name', 'ilike', "%{$term}%")->orWhere('email', 'ilike', "%{$term}%")))
             ->when($request->query('role'), fn ($q, $role) => $q->role($role))
@@ -34,8 +34,9 @@ class UserController extends Controller
 
     public function store(UserRequest $request): RedirectResponse
     {
-        $user = User::create([...$request->safe()->except(['role', 'password', 'is_active']), 'password' => $request->validated('password'), 'is_active' => $request->boolean('is_active')]);
+        $user = User::create([...$request->safe()->except(['role', 'password', 'is_active', 'can_triage']), 'password' => $request->validated('password'), 'is_active' => $request->boolean('is_active')]);
         $user->syncRoles([$request->validated('role')]);
+        $this->syncTriageAccess($request, $user);
 
         return redirect()->route('admin.users.index')->with('success', "User {$user->name} created.");
     }
@@ -47,7 +48,7 @@ class UserController extends Controller
 
     public function update(UserRequest $request, User $user): RedirectResponse
     {
-        $data = $request->safe()->except(['role', 'password', 'is_active']);
+        $data = $request->safe()->except(['role', 'password', 'is_active', 'can_triage']);
         if ($request->filled('password')) {
             $data['password'] = $request->validated('password');
         }
@@ -60,6 +61,7 @@ class UserController extends Controller
         if (! $isSelf) {
             $user->syncRoles([$request->validated('role')]);
         }
+        $this->syncTriageAccess($request, $user);
 
         return redirect()->route('admin.users.index')->with('success', "User {$user->name} updated.");
     }
@@ -72,5 +74,13 @@ class UserController extends Controller
         $user->update(['is_active' => ! $user->is_active]);
 
         return back()->with('success', $user->is_active ? "{$user->name} reactivated." : "{$user->name} deactivated.");
+    }
+
+    /** Triage is a first-line duty granted to individual agents (admins always have it). */
+    private function syncTriageAccess(UserRequest $request, User $user): void
+    {
+        $request->boolean('can_triage') && $user->hasRole('agent')
+            ? $user->givePermissionTo('tickets.triage')
+            : $user->revokePermissionTo('tickets.triage');
     }
 }
