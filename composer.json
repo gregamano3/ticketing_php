@@ -1,9 +1,10 @@
 {
     "$schema": "https://getcomposer.org/schema.json",
-    "name": "laravel/laravel",
+    "name": "gregamano3/ticketing-php",
     "type": "project",
-    "description": "The skeleton application for the Laravel framework.",
-    "keywords": ["laravel", "framework"],
+    "description": "Internal helpdesk ticketing system built with Laravel, PostgreSQL and AdminLTE 4.",
+    "homepage": "https://github.com/gregamano3/ticketing_php",
+    "keywords": ["helpdesk", "ticketing", "service-desk", "sla", "laravel", "adminlte", "postgresql"],
     "license": "MIT",
     "require": {
         "php": "^8.3",

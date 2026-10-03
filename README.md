@@ -1,6 +1,22 @@
 # Helpdesk
 
-An internal helpdesk ticketing system built with **Laravel 13**, **PostgreSQL** and **AdminLTE 4** (`jeroennoten/laravel-adminlte`).
+[![CI](https://github.com/gregamano3/ticketing_php/actions/workflows/ci.yml/badge.svg)](https://github.com/gregamano3/ticketing_php/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
+An open-source internal helpdesk ticketing system built with **Laravel 13**, **PostgreSQL** and **AdminLTE 4** (`jeroennoten/laravel-adminlte`). It has triage, SLAs with escalation, a knowledge base and reports, and it's tested end to end in a real browser.
+
+![Dashboard](docs/screenshots/dashboard.png)
+
+<table>
+  <tr>
+    <td><img src="docs/screenshots/triage.png" alt="Triage card on a ticket"></td>
+    <td><img src="docs/screenshots/ticket.png" alt="Ticket conversation with properties and SLA panels"></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/tickets.png" alt="Ticket list with filters"></td>
+    <td><img src="docs/screenshots/reports.png" alt="Reports"></td>
+  </tr>
+</table>
 
 ## Features
 
@@ -52,7 +68,7 @@ Run these in separate terminals:
 
 ### Demo accounts
 
-All demo accounts use the password `password`. They're seeded only outside production.
+All demo accounts use the password `password`. They're seeded only outside production (`APP_ENV=production` skips the demo seeder), so never run `DemoSeeder` on a real installation.
 
 | Role      | Email                 |
 |-----------|-----------------------|
@@ -88,3 +104,18 @@ Settings live in `config/helpdesk.php` and can be overridden from `.env`:
 | `HELPDESK_TRIAGE_MINUTES` | `60` | How long a ticket may wait in triage before escalating |
 | `HELPDESK_AT_RISK_MINUTES` | `60` | When the SLA badge turns "at risk" |
 | `HELPDESK_ATTACHMENT_MAX_KB` | `10240` | Maximum size per attachment |
+
+## Contributing
+
+Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for the workflow, tests and code style, and the [Code of Conduct](CODE_OF_CONDUCT.md).
+
+## Security
+
+Please report vulnerabilities privately, as described in [SECURITY.md](SECURITY.md). Don't open public issues for them.
+
+## License
+
+Helpdesk is open-source software licensed under the [MIT license](LICENSE).
+
+It builds on [Laravel](https://laravel.com), [AdminLTE](https://adminlte.io) via [Laravel-AdminLTE](https://github.com/jeroennoten/Laravel-AdminLTE), [spatie/laravel-permission](https://github.com/spatie/laravel-permission), [spatie/laravel-activitylog](https://github.com/spatie/laravel-activitylog), [HTMLPurifier for Laravel](https://github.com/mewebstudio/Purifier), Bootstrap, Bootstrap Icons, Tom Select, Quill and Chart.js. Each is distributed under its own license. The bundled Source Sans 3 font is licensed under the SIL Open Font License 1.1.
+
