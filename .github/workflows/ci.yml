@@ -36,7 +36,7 @@ jobs:
           php-version: '8.5'
           extensions: pdo_pgsql, intl, mbstring, gd
           coverage: none
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: vendor
           key: composer-${{ hashFiles('composer.lock') }}
@@ -83,7 +83,7 @@ jobs:
           php-version: '8.5'
           extensions: pdo_pgsql, intl, mbstring, gd
           coverage: none
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: vendor
           key: composer-${{ hashFiles('composer.lock') }}
