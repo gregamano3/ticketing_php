@@ -33,6 +33,9 @@
         @endif
         <a href="{{ route('tickets.edit', $ticket) }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-pencil"></i> Edit</a>
     @endif
+    @can('sendBackToTriage', $ticket)
+        <button type="button" class="btn btn-outline-warning btn-sm" data-bs-toggle="modal" data-bs-target="#send-back-modal"><i class="bi bi-arrow-return-left"></i> Send back to triage</button>
+    @endcan
     @can('delete', $ticket)
         <form method="POST" action="{{ route('tickets.destroy', $ticket) }}" class="d-inline" onsubmit="return confirm('Delete ticket {{ $ticket->reference }}?')">
             @csrf @method('DELETE')
@@ -53,6 +56,7 @@
                     <div class="small text-body-secondary">{{ $ticket->requester?->job_title }} {{ $ticket->requester?->department ? '· '.$ticket->requester->department->name : '' }}</div>
                 </div>
                 <div class="ms-auto d-flex gap-1 flex-wrap">
+                    @if ($ticket->needsTriage())<span class="badge text-bg-warning"><i class="bi bi-signpost-split"></i> Needs triage</span>@endif
                     <x-status-badge :status="$ticket->status" />
                     <x-priority-badge :priority="$ticket->priority" />
                     @if ($staff)<x-sla-badge :ticket="$ticket" :state="$slaState" />@endif
@@ -60,6 +64,12 @@
             </div>
             <div class="card-body">
                 <div class="reply-body">{{ $ticket->description }}</div>
+                @if ($ticket->impact && $ticket->urgency)
+                    <div class="small text-body-secondary mt-2">
+                        <i class="bi bi-people"></i> {{ \App\Support\PriorityMatrix::IMPACT[$ticket->impact] ?? '' }}
+                        · <i class="bi bi-lightning"></i> {{ \App\Support\PriorityMatrix::URGENCY[$ticket->urgency] ?? '' }}
+                    </div>
+                @endif
                 @include('tickets._attachments', ['attachments' => $ticket->attachments])
                 @if ($ticket->tags->isNotEmpty())
                     <div class="mt-3"><x-tag-badges :tags="$ticket->tags" /></div>
@@ -152,6 +162,51 @@
 
     {{-- Sidebar --}}
     <div class="col-lg-4">
+        @can('triage', $ticket)
+            <div class="card card-outline card-warning mb-4" id="triage-card">
+                <div class="card-header"><h3 class="card-title"><i class="bi bi-signpost-split"></i> Triage</h3></div>
+                <form method="POST" action="{{ route('tickets.triage', $ticket) }}">
+                    @csrf
+                    <div class="card-body">
+                        <p class="small text-body-secondary mb-2">Confirm where this ticket goes and how urgent it is. Leave the assignee empty to auto-assign within the department.</p>
+                        <div class="mb-2">
+                            <label class="form-label small mb-0" for="triage_department">Department</label>
+                            <select name="department_id" id="triage_department" class="form-select form-select-sm" required>
+                                <option value="">— Choose —</option>
+                                @foreach ($departments as $d)<option value="{{ $d->id }}" @selected($ticket->department_id === $d->id)>{{ $d->name }}</option>@endforeach
+                            </select>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label small mb-0" for="triage_category">Category</label>
+                            <select name="category_id" id="triage_category" class="form-select form-select-sm">
+                                <option value="">—</option>
+                                @foreach ($categories as $c)<option value="{{ $c->id }}" data-department="{{ $c->department_id }}" @selected($ticket->category_id === $c->id)>{{ $c->full_name }}</option>@endforeach
+                            </select>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label small mb-0" for="triage_priority">Priority</label>
+                            <select name="priority_id" id="triage_priority" class="form-select form-select-sm" required>
+                                @foreach ($priorities as $p)<option value="{{ $p->id }}" @selected($ticket->priority_id === $p->id)>{{ $p->name }}</option>@endforeach
+                            </select>
+                            @if ($ticket->impact && $ticket->urgency)
+                                <div class="form-text">Suggested from impact/urgency: {{ \App\Support\PriorityMatrix::suggest($ticket->impact, $ticket->urgency, $priorities)?->name }}</div>
+                            @endif
+                        </div>
+                        <div>
+                            <label class="form-label small mb-0" for="triage_assignee">Assignee</label>
+                            <select name="assignee_id" id="triage_assignee" class="form-select form-select-sm">
+                                <option value="">— Auto-assign —</option>
+                                @foreach ($agents as $a)<option value="{{ $a->id }}" data-department="{{ $a->department_id }}" @selected($ticket->assignee_id === $a->id)>{{ $a->name }}{{ $a->department ? ' ('.$a->department->name.')' : '' }}</option>@endforeach
+                            </select>
+                        </div>
+                    </div>
+                    <div class="card-footer text-end">
+                        <button class="btn btn-warning btn-sm"><i class="bi bi-check2-circle"></i> Complete triage</button>
+                    </div>
+                </form>
+            </div>
+        @endcan
+
         @if ($canUpdate)
             <div class="card card-outline card-primary mb-4">
                 <div class="card-header"><h3 class="card-title"><i class="bi bi-sliders"></i> Properties</h3></div>
@@ -291,6 +346,28 @@
         @endif
     </div>
 </div>
+@can('sendBackToTriage', $ticket)
+    <div class="modal fade" id="send-back-modal" tabindex="-1" aria-labelledby="send-back-title" aria-hidden="true">
+        <div class="modal-dialog">
+            <form method="POST" action="{{ route('tickets.send-back', $ticket) }}" class="modal-content">
+                @csrf
+                <div class="modal-header">
+                    <h5 class="modal-title" id="send-back-title">Send back to triage</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="small text-body-secondary">The ticket will be unassigned and returned to the triage queue. The reason is saved as an internal note.</p>
+                    <label class="form-label" for="send-back-reason">Reason</label>
+                    <textarea name="reason" id="send-back-reason" rows="3" class="form-control" required maxlength="1000" placeholder="e.g. This is a Facilities issue, not IT."></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button class="btn btn-warning"><i class="bi bi-arrow-return-left"></i> Send back</button>
+                </div>
+            </form>
+        </div>
+    </div>
+@endcan
 @stop
 
 @push('js')
@@ -315,6 +392,26 @@
             body.focus();
             picker.value = '';
         });
+
+        // Triage card: narrow categories and assignees to the chosen department.
+        const tDept = document.getElementById('triage_department');
+        if (tDept) {
+            const narrow = (select) => {
+                [...select.options].forEach(o => {
+                    if (!o.value) return;
+                    o.hidden = tDept.value && o.dataset.department && o.dataset.department !== tDept.value;
+                });
+                if (select.selectedOptions[0]?.hidden) select.value = '';
+            };
+            const tCat = document.getElementById('triage_category');
+            const tAssignee = document.getElementById('triage_assignee');
+            tDept.addEventListener('change', () => { narrow(tCat); narrow(tAssignee); });
+            tCat.addEventListener('change', () => {
+                const d = tCat.selectedOptions[0]?.dataset.department;
+                if (d && !tDept.value) { tDept.value = d; narrow(tCat); narrow(tAssignee); }
+            });
+            narrow(tCat); narrow(tAssignee);
+        }
 
         // Make the internal-note state obvious before sending.
         const internal = document.getElementById('is_internal');

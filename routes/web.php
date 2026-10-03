@@ -26,6 +26,8 @@ Route::middleware('auth')->group(function () {
     Route::get('tickets/export', [TicketController::class, 'export'])->name('tickets.export');
     Route::resource('tickets', TicketController::class);
     Route::post('tickets/{ticket}/claim', [TicketController::class, 'claim'])->name('tickets.claim');
+    Route::post('tickets/{ticket}/triage', [TicketController::class, 'triage'])->name('tickets.triage');
+    Route::post('tickets/{ticket}/send-back', [TicketController::class, 'sendBackToTriage'])->name('tickets.send-back');
     Route::post('tickets/{ticket}/watch', [TicketController::class, 'toggleWatch'])->name('tickets.watch');
     Route::post('tickets/{ticket}/replies', [TicketReplyController::class, 'store'])->name('tickets.replies.store');
 

@@ -13,6 +13,9 @@ return [
     // escalated again to the administrators (level 2).
     'escalation_level2_after_minutes' => env('HELPDESK_ESCALATION_L2_MINUTES', 60),
 
+    // Untriaged tickets older than this escalate (once) to the triagers.
+    'triage_minutes' => env('HELPDESK_TRIAGE_MINUTES', 60),
+
     // A ticket is "at risk" when its resolution due date is this close.
     'at_risk_minutes' => env('HELPDESK_AT_RISK_MINUTES', 60),
 

@@ -23,6 +23,7 @@ class DashboardController extends Controller
             'mine' => $base()->open()->where('assignee_id', $user->id)->count(),
             'requested' => $base()->open()->where('requester_id', $user->id)->count(),
             'unassigned' => $base()->open()->unassigned()->count(),
+            'triage' => $user->canTriage() ? $base()->needsTriage()->count() : null,
             'overdue' => $base()->overdue()->count(),
             'resolved_today' => $base()->whereDate('resolved_at', today())->count(),
         ];

@@ -16,8 +16,8 @@ class CheckSlaBreaches extends Command
         $stats = $sla->checkBreaches();
 
         $this->info(sprintf(
-            'Response breaches: %d, resolution breaches: %d, escalations: %d',
-            $stats['response'], $stats['resolution'], $stats['escalated']
+            'Response breaches: %d, resolution breaches: %d, triage overdue: %d, escalations: %d',
+            $stats['response'], $stats['resolution'], $stats['triage'], $stats['escalated']
         ));
 
         return self::SUCCESS;

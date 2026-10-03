@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['name', 'department_id', 'parent_id', 'is_active'])]
+#[Fillable(['name', 'department_id', 'parent_id', 'default_priority_id', 'is_active'])]
 class Category extends Model
 {
     use HasFactory;
@@ -22,6 +22,11 @@ class Category extends Model
     public function department(): BelongsTo
     {
         return $this->belongsTo(Department::class);
+    }
+
+    public function defaultPriority(): BelongsTo
+    {
+        return $this->belongsTo(Priority::class, 'default_priority_id');
     }
 
     public function parent(): BelongsTo

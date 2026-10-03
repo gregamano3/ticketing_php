@@ -32,7 +32,10 @@ test.describe.serial('ticket journey: requester → agent → requester', () => 
         // Categories are narrowed to the chosen department.
         await expect(page.locator('#category_id option', { hasText: 'Payroll' })).toBeHidden();
         await page.getByLabel('Category').selectOption({ label: 'Hardware › Printer' });
-        await page.getByLabel('Priority').selectOption({ index: 2 }); // High
+        // Requesters describe impact and urgency instead of choosing a priority.
+        await expect(page.getByLabel('Priority')).toHaveCount(0);
+        await page.getByLabel('Who is affected?').selectOption({ label: 'My team' });
+        await page.getByLabel('How urgent is it?').selectOption({ label: 'Normal — it slows me down' });
         await tomSelect(page, '#watchers', 'Ben Cruz');
         await page.getByLabel('Attachments').setInputFiles({ name: 'printer-error.txt', mimeType: 'text/plain', buffer: Buffer.from('E-204 tray 2') });
         await page.getByRole('button', { name: 'Submit ticket' }).click();

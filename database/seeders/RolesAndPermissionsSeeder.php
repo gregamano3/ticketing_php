@@ -11,6 +11,7 @@ class RolesAndPermissionsSeeder extends Seeder
 {
     public const PERMISSIONS = [
         'tickets.work',          // work the queue: assign, change status, internal notes
+        'tickets.triage',        // first-line triage of new tickets across departments
         'reports.view',
         'kb.manage',
         'canned.manage-shared',

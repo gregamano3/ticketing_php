@@ -24,16 +24,36 @@
             @endforeach
         </select>
     </div>
-    <div class="col-md-6">
-        <label class="form-label" for="priority_id">Priority</label>
-        <select name="priority_id" id="priority_id" class="form-select">
-            @foreach ($priorities as $p)
-                <option value="{{ $p->id }}" @selected(old('priority_id', $ticket->priority_id ?? $priorities->firstWhere('is_default', true)?->id) == $p->id)>
-                    {{ $p->name }} — response {{ \Carbon\CarbonInterval::minutes($p->response_minutes)->cascade()->forHumans(short: true) }}, resolution {{ \Carbon\CarbonInterval::minutes($p->resolution_minutes)->cascade()->forHumans(short: true) }}
-                </option>
-            @endforeach
-        </select>
-    </div>
+    @if ($staff)
+        <div class="col-md-6">
+            <label class="form-label" for="priority_id">Priority</label>
+            <select name="priority_id" id="priority_id" class="form-select">
+                @foreach ($priorities as $p)
+                    <option value="{{ $p->id }}" @selected(old('priority_id', $ticket->priority_id ?? $priorities->firstWhere('is_default', true)?->id) == $p->id)>
+                        {{ $p->name }} — response {{ \Carbon\CarbonInterval::minutes($p->response_minutes)->cascade()->forHumans(short: true) }}, resolution {{ \Carbon\CarbonInterval::minutes($p->resolution_minutes)->cascade()->forHumans(short: true) }}
+                    </option>
+                @endforeach
+            </select>
+        </div>
+    @else
+        {{-- Requesters describe the situation; the priority is derived and reviewed in triage. --}}
+        <div class="col-md-6">
+            <label class="form-label" for="impact">Who is affected?</label>
+            <select name="impact" id="impact" class="form-select">
+                @foreach (\App\Support\PriorityMatrix::IMPACT as $value => $label)
+                    <option value="{{ $value }}" @selected(old('impact', 1) == $value)>{{ $label }}</option>
+                @endforeach
+            </select>
+        </div>
+        <div class="col-md-6">
+            <label class="form-label" for="urgency">How urgent is it?</label>
+            <select name="urgency" id="urgency" class="form-select">
+                @foreach (\App\Support\PriorityMatrix::URGENCY as $value => $label)
+                    <option value="{{ $value }}" @selected(old('urgency', 2) == $value)>{{ $label }}</option>
+                @endforeach
+            </select>
+        </div>
+    @endif
 
     @if ($staff)
         @if ($ticket->exists)

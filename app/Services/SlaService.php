@@ -64,11 +64,14 @@ class SlaService
      * Flag breached tickets and escalate them. Level 1 notifies the assignee
      * and department lead; level 2 (after a delay) notifies administrators.
      *
-     * @return array{response: int, resolution: int, escalated: int}
+     * @return array{response: int, resolution: int, triage: int, escalated: int}
      */
     public function checkBreaches(): array
     {
-        $stats = ['response' => 0, 'resolution' => 0, 'escalated' => 0];
+        $stats = ['response' => 0, 'resolution' => 0, 'triage' => 0, 'escalated' => 0];
+
+        $stats['triage'] = $this->checkTriage();
+        $stats['escalated'] += $stats['triage'];
 
         Ticket::query()
             ->open()
@@ -85,6 +88,43 @@ class SlaService
             });
 
         return $stats;
+    }
+
+    /**
+     * Untriaged tickets waiting longer than the triage target are escalated
+     * once to the triagers.
+     */
+    private function checkTriage(): int
+    {
+        $count = 0;
+        $triagers = User::triagers()->get();
+
+        Ticket::query()
+            ->needsTriage()
+            ->where('created_at', '<', now()->subMinutes((int) config('helpdesk.triage_minutes')))
+            ->whereDoesntHave('escalations', fn ($q) => $q->where('type', 'triage'))
+            ->chunkById(100, function ($tickets) use ($triagers, &$count) {
+                foreach ($tickets as $ticket) {
+                    foreach ($triagers->whenEmpty(fn () => collect([null])) as $user) {
+                        SlaEscalation::create([
+                            'ticket_id' => $ticket->id,
+                            'type' => 'triage',
+                            'level' => 1,
+                            'escalated_to' => $user?->id,
+                            'triggered_at' => now(),
+                        ]);
+                    }
+
+                    activity('ticket')->performedOn($ticket)->event('escalated')
+                        ->withProperties(['type' => 'triage', 'level' => 1])
+                        ->log('waiting for triage too long — escalated to triagers');
+
+                    Notification::send($triagers, new SlaBreachedNotification($ticket, 'triage', 1));
+                    $count++;
+                }
+            });
+
+        return $count;
     }
 
     private function evaluate(Ticket $ticket, array &$stats): void
@@ -118,7 +158,7 @@ class SlaService
 
     private function dueForLevelTwo(Ticket $ticket): bool
     {
-        $last = $ticket->escalations->where('level', 1)->sortByDesc('triggered_at')->first();
+        $last = $ticket->escalations->where('level', 1)->where('type', '!=', 'triage')->sortByDesc('triggered_at')->first();
 
         return $last && $last->triggered_at->addMinutes((int) config('helpdesk.escalation_level2_after_minutes'))->isPast();
     }

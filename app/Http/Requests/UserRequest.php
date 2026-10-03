@@ -26,6 +26,7 @@ class UserRequest extends FormRequest
             'phone' => ['nullable', 'string', 'max:50'],
             'role' => ['required', Rule::in(['admin', 'agent', 'requester'])],
             'is_active' => ['nullable', 'boolean'],
+            'can_triage' => ['nullable', 'boolean'],
         ];
     }
 }

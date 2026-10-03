@@ -21,6 +21,8 @@ class StoreTicketRequest extends FormRequest
             'department_id' => ['nullable', 'exists:departments,id'],
             'category_id' => ['nullable', 'exists:categories,id'],
             'priority_id' => ['nullable', 'exists:priorities,id'],
+            'impact' => ['nullable', 'integer', 'between:1,3'],
+            'urgency' => ['nullable', 'integer', 'between:1,3'],
             'requester_id' => ['nullable', 'exists:users,id'],
             'assignee_id' => ['nullable', 'exists:users,id'],
             'tags' => ['nullable', 'array'],
