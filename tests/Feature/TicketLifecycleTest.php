@@ -38,7 +38,8 @@ class TicketLifecycleTest extends TestCase
             'subject' => 'VPN is down',
             'description' => 'Cannot connect since this morning.',
             'department_id' => $this->department()->id,
-            'priority_id' => $high->id,
+            'priority_id' => $this->priorityNamed('Low')->id, // requesters cannot set the priority directly…
+            'impact' => 2, 'urgency' => 2,                  // …it is derived from impact + urgency (→ High)
             'assignee_id' => $busy->id, // requesters may not choose an assignee
         ])->assertRedirect();
 
@@ -48,6 +49,8 @@ class TicketLifecycleTest extends TestCase
         $this->assertSame($requester->id, $ticket->requester_id);
         $this->assertSame($free->id, $ticket->assignee_id, 'least-busy agent should be auto-assigned');
         $this->assertSame('Open', $ticket->status->name);
+        $this->assertSame($high->id, $ticket->priority_id);
+        $this->assertNull($ticket->triaged_at, 'requester tickets wait for triage');
         $this->assertTrue($ticket->due_response_at->equalTo(now()->addMinutes($high->response_minutes)));
         $this->assertTrue($ticket->due_resolution_at->equalTo(now()->addMinutes($high->resolution_minutes)));
 
