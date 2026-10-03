@@ -14,6 +14,8 @@ export default defineConfig({
     forbidOnly: !!process.env.CI,
     retries: process.env.CI ? 1 : 0,
     timeout: 45_000,
+    // README screenshots only run on demand (SCREENSHOTS=1 bin/e2e -g @screenshots).
+    grepInvert: process.env.SCREENSHOTS ? undefined : /@screenshots/,
     expect: { timeout: 10_000 },
     reporter: [['list'], ['html', { outputFolder: './storage/e2e/report', open: 'never' }]],
     use: {

@@ -1,0 +1,31 @@
+name: Bug report
+description: Something isn't working as expected
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you expect to happen instead?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Log in as an agent
+        2. Open a ticket in "Needs triage"
+        3. ...
+    validations:
+      required: true
+  - type: dropdown
+    id: role
+    attributes:
+      label: Role
+      options: [Admin, Agent, Agent with triage access, Requester, Not logged in]
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Commit or version, browser, Sail or custom deployment, and any relevant logs (remove secrets).
