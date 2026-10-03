@@ -55,7 +55,7 @@
 
 @push('js')
 <script>
-    window.addEventListener('load', () => {
+    window._AdminLTE_Ready(() => {
         const quill = new Quill('#editor', {
             theme: 'snow',
             modules: {

@@ -17,7 +17,9 @@
 @stop
 
 @section('content_top_nav_right')
+    {{-- The badge must be rendered (even empty) for the polling script to update it. --}}
     <x-adminlte-navbar-notification id="navbar-notifications" icon="bi bi-bell" badge-color="danger"
+        :badge-label="auth()->user()->unreadNotifications()->count() ?: ''"
         :update-cfg="['route' => 'notifications.poll', 'period' => 30]" enable-dropdown-mode
         dropdown-footer-label="See all notifications" href="{{ route('notifications.index') }}" />
 @stop

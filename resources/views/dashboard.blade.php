@@ -119,7 +119,7 @@
 
 @push('js')
 <script>
-    window.addEventListener('load', () => {
+    window._AdminLTE_Ready(() => {
         const css = getComputedStyle(document.documentElement);
         const color = (name) => css.getPropertyValue('--bs-' + name).trim() || '#6c757d';
 
