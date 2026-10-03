@@ -1,5 +1,13 @@
 <?php
 
+use JeroenNoten\LaravelAdminLte\Menu\Filters\ActiveFilter;
+use JeroenNoten\LaravelAdminLte\Menu\Filters\ClassesFilter;
+use JeroenNoten\LaravelAdminLte\Menu\Filters\DataFilter;
+use JeroenNoten\LaravelAdminLte\Menu\Filters\GateFilter;
+use JeroenNoten\LaravelAdminLte\Menu\Filters\HrefFilter;
+use JeroenNoten\LaravelAdminLte\Menu\Filters\LangFilter;
+use JeroenNoten\LaravelAdminLte\Menu\Filters\SearchFilter;
+
 /*
 |--------------------------------------------------------------------------
 | Laravel AdminLTE Configuration
@@ -37,9 +45,9 @@ return [
     |
     */
 
-    'title' => 'AdminLTE 4',
+    'title' => 'Helpdesk',
     'title_prefix' => '',
-    'title_postfix' => '',
+    'title_postfix' => ' | Helpdesk',
 
     /*
     |--------------------------------------------------------------------------
@@ -77,12 +85,12 @@ return [
     |
     */
 
-    'logo' => '<b>Admin</b>LTE',
+    'logo' => '<b>Help</b>desk',
     'logo_img' => 'vendor/adminlte/dist/assets/img/AdminLTELogo.png',
     'logo_img_class' => 'brand-image opacity-75 shadow',
     'logo_img_xl' => null,
     'logo_img_xl_class' => 'brand-image-xs opacity-75',
-    'logo_img_alt' => 'Admin Logo',
+    'logo_img_alt' => 'Helpdesk',
 
     /*
     |--------------------------------------------------------------------------
@@ -98,7 +106,7 @@ return [
     */
 
     'auth_logo' => [
-        'enabled' => false,
+        'enabled' => true,
         'img' => [
             'path' => 'vendor/adminlte/dist/assets/img/AdminLTELogo.png',
             'alt' => 'Auth Logo',
@@ -133,7 +141,7 @@ return [
     */
 
     'preloader' => [
-        'enabled' => true,
+        'enabled' => false,
         'mode' => 'fullscreen',
         'img' => [
             'path' => 'vendor/adminlte/dist/assets/img/AdminLTELogo.png',
@@ -168,11 +176,11 @@ return [
     */
 
     'usermenu_enabled' => true,
-    'usermenu_header' => false,
+    'usermenu_header' => true,
     'usermenu_header_class' => 'bg-primary',
-    'usermenu_image' => false,
-    'usermenu_desc' => false,
-    'usermenu_profile_url' => false,
+    'usermenu_image' => true,
+    'usermenu_desc' => true,
+    'usermenu_profile_url' => true,
 
     /*
     |--------------------------------------------------------------------------
@@ -198,7 +206,7 @@ return [
 
     'logout_method' => null,
     'login_url' => 'login',
-    'register_url' => 'register',
+    'register_url' => false,
     'password_reset_url' => 'password/reset',
     'password_email_url' => 'password/email',
     'profile_url' => false,
@@ -767,7 +775,10 @@ return [
         // Navbar items:
         [
             'type' => 'navbar-search',
-            'text' => 'search',
+            'text' => 'Search tickets…',
+            'url' => 'tickets',
+            'method' => 'get',
+            'input_name' => 'q',
             'topnav_right' => true,
         ],
         [
@@ -781,85 +792,110 @@ return [
 
         // Sidebar items:
         [
-            'type' => 'sidebar-menu-search',
-            'text' => 'search',
+            'text' => 'Dashboard',
+            'route' => 'home',
+            'icon' => 'bi bi-speedometer2',
         ],
         [
-            'text' => 'blog',
-            'url' => 'admin/blog',
-            'can' => 'manage-blog',
+            'text' => 'New ticket',
+            'route' => 'tickets.create',
+            'icon' => 'bi bi-plus-circle',
+            'icon_color' => 'success',
+        ],
+        ['header' => 'TICKETS', 'can' => 'tickets.work'],
+        [
+            'text' => 'Open tickets',
+            'url' => 'tickets?view=open',
+            'icon' => 'bi bi-inbox',
+            'can' => 'tickets.work',
         ],
         [
-            'text' => 'pages',
-            'url' => 'admin/pages',
-            'icon' => 'bi bi-file-earmark',
-            'label' => 4,
-            'label_color' => 'success',
-        ],
-        ['header' => 'account_settings'],
-        [
-            'text' => 'profile',
-            'url' => 'admin/settings',
-            'icon' => 'bi bi-person',
+            'text' => 'Assigned to me',
+            'url' => 'tickets?view=mine',
+            'icon' => 'bi bi-person-workspace',
+            'can' => 'tickets.work',
         ],
         [
-            'text' => 'change_password',
-            'url' => 'admin/settings',
-            'icon' => 'bi bi-lock',
+            'text' => 'Unassigned',
+            'url' => 'tickets?view=unassigned',
+            'icon' => 'bi bi-question-circle',
+            'can' => 'tickets.work',
         ],
         [
-            'text' => 'multilevel',
-            'icon' => 'bi bi-share',
+            'text' => 'Overdue',
+            'url' => 'tickets?view=overdue',
+            'icon' => 'bi bi-alarm',
+            'icon_color' => 'danger',
+            'can' => 'tickets.work',
+        ],
+        [
+            'text' => 'All tickets',
+            'url' => 'tickets?view=all',
+            'icon' => 'bi bi-collection',
+            'can' => 'tickets.work',
+        ],
+        ['header' => 'MY REQUESTS'],
+        [
+            'text' => 'My requests',
+            'url' => 'tickets?view=requested',
+            'icon' => 'bi bi-send',
+        ],
+        [
+            'text' => 'Watching',
+            'url' => 'tickets?view=watching',
+            'icon' => 'bi bi-eye',
+        ],
+        ['header' => 'RESOURCES'],
+        [
+            'text' => 'Knowledge base',
+            'route' => 'kb.index',
+            'icon' => 'bi bi-journal-text',
+            'active' => ['kb', 'kb/*'],
+        ],
+        [
+            'text' => 'Canned replies',
+            'route' => 'canned-responses.index',
+            'icon' => 'bi bi-chat-square-quote',
+            'can' => 'tickets.work',
+            'active' => ['canned-responses*'],
+        ],
+        [
+            'text' => 'Reports',
+            'route' => 'reports.index',
+            'icon' => 'bi bi-bar-chart-line',
+            'can' => 'reports.view',
+        ],
+        ['header' => 'ADMINISTRATION', 'can' => 'users.manage'],
+        [
+            'text' => 'Users',
+            'route' => 'admin.users.index',
+            'icon' => 'bi bi-people',
+            'can' => 'users.manage',
+            'active' => ['admin/users*'],
+        ],
+        [
+            'text' => 'Configuration',
+            'icon' => 'bi bi-sliders',
+            'can' => 'settings.manage',
             'submenu' => [
-                [
-                    'text' => 'level_one',
-                    'url' => '#',
-                ],
-                [
-                    'text' => 'level_one',
-                    'url' => '#',
-                    'submenu' => [
-                        [
-                            'text' => 'level_two',
-                            'url' => '#',
-                        ],
-                        [
-                            'text' => 'level_two',
-                            'url' => '#',
-                            'submenu' => [
-                                [
-                                    'text' => 'level_three',
-                                    'url' => '#',
-                                ],
-                                [
-                                    'text' => 'level_three',
-                                    'url' => '#',
-                                ],
-                            ],
-                        ],
-                    ],
-                ],
-                [
-                    'text' => 'level_one',
-                    'url' => '#',
-                ],
+                ['text' => 'Departments', 'url' => 'admin/lookups/departments', 'icon' => 'bi bi-building', 'active' => ['admin/lookups/departments*']],
+                ['text' => 'Categories', 'url' => 'admin/lookups/categories', 'icon' => 'bi bi-diagram-3', 'active' => ['admin/lookups/categories*']],
+                ['text' => 'Priorities & SLA', 'url' => 'admin/lookups/priorities', 'icon' => 'bi bi-flag', 'active' => ['admin/lookups/priorities*']],
+                ['text' => 'Statuses', 'url' => 'admin/lookups/statuses', 'icon' => 'bi bi-signpost-split', 'active' => ['admin/lookups/statuses*']],
+                ['text' => 'Tags', 'url' => 'admin/lookups/tags', 'icon' => 'bi bi-tags', 'active' => ['admin/lookups/tags*']],
+                ['text' => 'KB categories', 'url' => 'admin/lookups/kb-categories', 'icon' => 'bi bi-journal-bookmark', 'active' => ['admin/lookups/kb-categories*']],
             ],
         ],
-        ['header' => 'labels'],
+        ['header' => 'ACCOUNT'],
         [
-            'text' => 'important',
-            'icon_color' => 'danger',
-            'url' => '#',
+            'text' => 'Notifications',
+            'route' => 'notifications.index',
+            'icon' => 'bi bi-bell',
         ],
         [
-            'text' => 'warning',
-            'icon_color' => 'warning',
-            'url' => '#',
-        ],
-        [
-            'text' => 'information',
-            'icon_color' => 'info',
-            'url' => '#',
+            'text' => 'Profile',
+            'route' => 'profile.edit',
+            'icon' => 'bi bi-person-circle',
         ],
     ],
 
@@ -876,13 +912,13 @@ return [
     */
 
     'filters' => [
-        JeroenNoten\LaravelAdminLte\Menu\Filters\GateFilter::class,
-        JeroenNoten\LaravelAdminLte\Menu\Filters\HrefFilter::class,
-        JeroenNoten\LaravelAdminLte\Menu\Filters\SearchFilter::class,
-        JeroenNoten\LaravelAdminLte\Menu\Filters\ActiveFilter::class,
-        JeroenNoten\LaravelAdminLte\Menu\Filters\ClassesFilter::class,
-        JeroenNoten\LaravelAdminLte\Menu\Filters\LangFilter::class,
-        JeroenNoten\LaravelAdminLte\Menu\Filters\DataFilter::class,
+        GateFilter::class,
+        HrefFilter::class,
+        SearchFilter::class,
+        ActiveFilter::class,
+        ClassesFilter::class,
+        LangFilter::class,
+        DataFilter::class,
     ],
 
     /*
